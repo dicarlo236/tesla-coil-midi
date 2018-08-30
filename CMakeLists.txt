@@ -21,9 +21,11 @@ set(midifile-hdrs
     midifile/include/MidiMessage.h
     midifile/include/Options.h
     )
+
+set(CMAKE_CXX_FLAGS "-ggdb -O3")
 include_directories(midifile/include)
 add_library(midifile STATIC ${midifile-srcs} ${midifile-hdrs})
 
 # Build actual application
-add_executable(${PROJECT_NAME} "main.cpp")
-target_link_libraries(${PROJECT_NAME} midifile)
+add_executable(${PROJECT_NAME} "main.cpp" "player.cpp" "player.h")
+target_link_libraries(${PROJECT_NAME} midifile m)
