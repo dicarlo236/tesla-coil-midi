@@ -22,7 +22,7 @@ set(midifile-hdrs
     midifile/include/Options.h
     )
 
-set(CMAKE_CXX_FLAGS "-ggdb -O3")
+set(CMAKE_CXX_FLAGS "-ggdb -O2")
 include_directories(midifile/include)
 add_library(midifile STATIC ${midifile-srcs} ${midifile-hdrs})
 

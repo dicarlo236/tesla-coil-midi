@@ -11,6 +11,8 @@
 // set this to audio sample frequency
 #define SAMPLE_FREQEUENCY 48000
 
+#define CHEATER_FREQUENCY_MULT_POWER 9
+
 // maximum number of notes that can be played
 // if this is too large, the code will be slow
 // it this is too small, notes might be left out
@@ -25,17 +27,17 @@
 // - note (midi notes are 0-255, this is looked up in the frequency table)
 struct Note {
     Note(uint32_t start, uint32_t duration, uint8_t note) :
-        _start_tick(start),
         _note(note) {
-        if(duration >= (1 << 24))
+        if(start >= (1 << 16))
+            printf("! start tick %d is too long\n", start);
+        _start_tick = start & 0xffff;
+        if(duration >= (1 << 8))
             printf("! Duration %d is too long\n", duration);
-        _duration = duration & 0xffff;
-        _extra_duration = 0xff & (duration >> 16);
+        _duration = duration & 0xff;
     }
-    uint32_t _start_tick;
-    uint16_t _duration;
+    uint16_t _start_tick;
+    uint8_t _duration;
     uint8_t  _note;
-    uint8_t  _extra_duration;
 };
 
 

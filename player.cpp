@@ -2,29 +2,29 @@
 
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 
 Note* song = nullptr;
 uint32_t songLength = 0;
 
-// TODO add min available oscillator
-// TODO reduce duty cycle
-// TODO fast calculation of nNotes playing
 
 struct osc {
     uint32_t duration_remaining;
     uint16_t period;
     uint16_t on_time;
-    uint16_t on_offset;
-    // maybe pad? uint16_t _;
 };
 
 static osc oscs[MAX_NOTES];
+static osc* oscPool[MAX_NOTES];
+static osc** oscPoolEnd;
+static osc** oscPoolPtr;
 static uint32_t now = 0;
 static uint32_t songPosition = 0;
 bool songDone = false;
 static uint32_t nextNoteTick = 0;
 static uint16_t frequencyTable[256];
 static uint16_t periodTable[256];
+static uint8_t nPlaying = 0;
 
 void initialize_play() {
     memset((void*)oscs,0,MAX_NOTES*sizeof(osc));
@@ -32,6 +32,7 @@ void initialize_play() {
     songPosition = 0;
     songDone = false;
     nextNoteTick = song[0]._start_tick;
+    nPlaying = 0;
     for(int i = 0; i < 256; i++)
     {
         float offset = 69;
@@ -42,17 +43,18 @@ void initialize_play() {
         //printf("period %d %d (%d Hz)\n", i, periodTable[i],frequencyTable[i]);
     }
     printf("Done initialize\n");
+
+    for(int i = 0; i < MAX_NOTES; i++) {
+        oscPool[i] = oscs + i;
+    }
+    oscPoolEnd = oscPool + MAX_NOTES;
+    oscPoolPtr = oscPool;
 }
 
 
 uint16_t play() {
-    if(songDone) return false;
+    if(songDone) return 0;
     uint16_t isOn = 0;
-
-    // count number of playing notes
-    uint8_t nPlaying = 0;
-    for(uint8_t i = 0; i < MAX_NOTES; i++)
-        if(oscs[i].duration_remaining) nPlaying++;
 
     // play/end notes
     for(uint8_t i = 0; i < MAX_NOTES; i++) {
@@ -62,46 +64,42 @@ uint16_t play() {
         // note is playing
         uint16_t progress = now % o->period;
         uint16_t effectiveOnTime = o->on_time / nPlaying;
-        uint16_t unwrappedEnd = o->on_offset + effectiveOnTime;
-        if(unwrappedEnd > o->period) {
-            if(progress > o->on_offset || progress < (o->on_offset + effectiveOnTime - o->period)) {
-                isOn++;
-            }
-        } else {
-            if(progress > o->on_offset && progress < (o->on_offset + effectiveOnTime )) {
-                isOn++;
-            }
+
+        if(progress < effectiveOnTime) {
+            isOn += 1;
         }
 
+        if(o->duration_remaining == 1) {
+            nPlaying--;
+            *(--oscPoolPtr) = o;
+        }
         o->duration_remaining--;
     }
 
-    // is there a new note?
-    if(nextNoteTick <= now) {
-        // there is note to load right now, find an oscillator
-        osc* o = nullptr;
-        for(uint8_t i = 0; i < MAX_NOTES; i++) {
-            if(!oscs[i].duration_remaining) {
-                o = oscs + i;
-                break;
+    // avoids mod.
+    if(!(now & (1 << CHEATER_FREQUENCY_MULT_POWER))) {
+        // is there a new note?
+        if(nextNoteTick <= (now >> CHEATER_FREQUENCY_MULT_POWER) && oscPoolPtr < oscPoolEnd) {
+            // there is note to load right now, find an oscillator
+            osc* o = *(oscPoolPtr++);
+
+            if(!o) {
+                printf("Too many notes! skipping...\n");
+            } else {
+                Note* note = song + songPosition;
+                o->duration_remaining = ((uint32_t)note->_duration) << CHEATER_FREQUENCY_MULT_POWER;
+                o->period = periodTable[note->_note];
+                o->on_time = o->period / 2;
+                nPlaying++;
             }
-        }
 
-        if(!o) {
-            printf("Too many notes! skipping...\n");
-        } else {
-            Note* note = song + songPosition;
-            o->duration_remaining = note->_duration + (note->_extra_duration << 16); // wrong
-            o->period = periodTable[note->_note];
-            o->on_time = o->period / 2;
-            o->on_offset = (o->period * (o - oscs)) / MAX_NOTES; // meh
+            // prepare for next note
+            songPosition++;
+            if(songPosition >= songLength) songDone = true;
+            nextNoteTick = song[songPosition]._start_tick;
         }
-
-        // prepare for next note
-        songPosition++;
-        if(songPosition >= songLength) songDone = true;
-        nextNoteTick = song[songPosition]._start_tick;
     }
+
 
     now++;
     return isOn;

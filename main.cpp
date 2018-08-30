@@ -35,7 +35,7 @@ using std::vector;
 
 uint32_t secondsToTicks(double seconds) {
     if(seconds < .001) printf("!note with duration %f\n",seconds);
-    return seconds * SAMPLE_FREQEUENCY;
+    return seconds * SAMPLE_FREQEUENCY / (1 << CHEATER_FREQUENCY_MULT_POWER);
 }
 
 void boundPitches(int max, vector<Note>& notes) {
@@ -92,7 +92,7 @@ void processMidiFile(const char* filename) {
         return a._start_tick < b._start_tick;
     });
 
-    printf("Size of song: %d bytes\n", sizeof(Note) * notes.size());
+    printf("Size of song: %lu bytes\n", sizeof(Note) * notes.size());
 
     boundPitches(128,notes);
 
@@ -106,13 +106,14 @@ void processMidiFile(const char* filename) {
     Timer t;
     int i = 0;
     while(!songDone) {
-        music.push_back(play()>0?80:-80);
+        music.push_back(play()>0?30:-30);
+        //music.push_back( play() * 5 );
     }
     float secs = t.elapsed();
     printf("Done in %.3f ms\n", secs * 1000.f);
     printf("%.3fx faster than real time\n", midifile.getFileDurationInSeconds() / secs);
 
-    printf("Got %d samples\n", music.size());
+    printf("Got %lu samples\n", music.size());
 
     string rawName = fileString + ".raw";
     FILE* fptr = fopen(rawName.c_str(), "wb");
@@ -123,7 +124,7 @@ void processMidiFile(const char* filename) {
 
 int main(int argc, char** argv)
 {
-    printf("Size of note: %d bytes\n", sizeof(Note));
+    printf("Size of note: %lu bytes\n", sizeof(Note));
     if(argc < 2) {
         printf("Usage: midi-tool [MIDI-FILES]...\n");
         return EXIT_FAILURE;
