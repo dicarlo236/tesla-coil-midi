@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <vector>
 #include <algorithm>
+#include <fstream>
 
 #include "midifile/include/MidiFile.h"
 #include "player.h"
@@ -36,6 +37,18 @@ using std::vector;
 uint32_t secondsToTicks(double seconds) {
     if(seconds < .001) printf("!note with duration %f\n",seconds);
     return seconds * SAMPLE_FREQEUENCY / (1 << CHEATER_FREQUENCY_MULT_POWER);
+}
+
+void songToData(std::vector<Note>& notes, std::string fileName) {
+    std::ofstream fs(fileName);
+    fs << "const uint32_t SONG[" << notes.size() <<"] = {";
+    for(int i = 0; i < notes.size(); i++) {
+        fs << *(uint32_t*)(notes.data() + i);
+        if(i < notes.size() - 1)
+            fs << ", ";
+    }
+    fs << "};";
+    fs.close();
 }
 
 void boundPitches(int max, vector<Note>& notes) {
@@ -119,6 +132,8 @@ void processMidiFile(const char* filename) {
     FILE* fptr = fopen(rawName.c_str(), "wb");
     fwrite(music.data(), music.size(), 1,fptr);
     fclose(fptr);
+
+    songToData(notes, fileString + ".txt");
 
 }
 
